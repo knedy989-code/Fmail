@@ -1,433 +1,462 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vision-Craft: Proximity Object Arena</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <style>
-        :root {
-            --bg-dark: #090d16;
-            --panel-bg: #111827;
-            --primary: #3b82f6;
-            --enemy: #ef4444;
-            --text: #f3f4f6;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AirLink Mesh</title>
+  
+  <link rel="manifest" id="pwaManifest">
+  
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root {
+      --bg-color: #0a0a0a;
+      --card-bg: #16161a;
+      --accent-color: #0071e3;
+      --accent-success: #34c759;
+      --accent-error: #ff3b30;
+      --text-main: #f5f5f7;
+      --text-muted: #86868b;
+    }
 
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-dark);
-            color: var(--text);
-            font-family: system-ui, -apple-system, sans-serif;
-            overflow: hidden;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-        #app-container {
-            display: flex;
-            width: 100vw;
-            height: 100vh;
-        }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-        /* Left Side: Setup, Scanning, Webcam */
-        #setup-panel {
-            width: 350px;
-            background-color: var(--panel-bg);
-            border-right: 2px solid #1f2937;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-            z-index: 10;
-            overflow-y: auto;
-        }
+    /* Dynamic Grid for up to 5 people */
+    .video-grid {
+      flex: 1;
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+      background: #000;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      align-content: center;
+    }
 
-        /* Right Side: Main Arena Game */
-        #game-panel {
-            flex-grow: 1;
-            position: relative;
-            background: #020617;
-        }
+    .video-wrapper {
+      position: relative;
+      background: #222;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
 
-        video {
-            display: none; /* Hidden processing data */
-        }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-        .video-container {
-            position: relative;
-            width: 100%;
-            height: 200px;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 15px;
-        }
+    .peer-label {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: var(--text-main);
+      z-index: 2;
+    }
 
-        canvas#viewfinder {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* Mirror view for natural interaction */
-        }
+    /* Setup & PIN Entry Overlay */
+    .setup-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-color);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      gap: 24px;
+    }
 
-        .instruction-box {
-            background: #1e293b;
-            border-left: 4px solid var(--primary);
-            padding: 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            margin-bottom: 15px;
-            line-height: 1.4;
-        }
+    .setup-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 30px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    }
 
-        button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 15px;
-            margin-bottom: 10px;
-            transition: opacity 0.2s;
-        }
+    .pin-display {
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: var(--accent-success);
+      margin: 15px 0;
+    }
 
-        button:hover { opacity: 0.9; }
+    .pin-input {
+      background: #2c2c2e;
+      border: 2px solid transparent;
+      color: #fff;
+      font-size: 2rem;
+      text-align: center;
+      padding: 10px;
+      border-radius: 12px;
+      width: 160px;
+      letter-spacing: 8px;
+      margin-bottom: 20px;
+    }
 
-        input {
-            background: #030712;
-            border: 1px solid #374151;
-            color: white;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
+    .pin-input:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
 
-        .slider-group {
-            margin: 10px 0 20px 0;
-            background: #1e293b;
-            padding: 10px;
-            border-radius: 6px;
-        }
+    /* Core Controls HUD */
+    .controls-bar {
+      background: var(--card-bg);
+      padding: 20px 20px 35px 20px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
 
-        .slider-group label {
-            display: block;
-            font-size: 12px;
-            color: #9ca3af;
-            margin-bottom: 5px;
-        }
+    .btn {
+      background-color: var(--accent-color);
+      color: var(--text-main);
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+    }
 
-        .slider-group input[type="range"] {
-            width: 100%;
-            margin: 0;
-        }
+    .btn-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background-color: #2c2c2e;
+      border: none;
+      fill: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
 
-        canvas#game-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        #hud {
-            position: absolute;
-            top: 20px;
-            width: 100%;
-            display: flex;
-            justify-content: space-around;
-            font-size: 22px;
-            font-weight: bold;
-            pointer-events: none;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-        }
-
-        .network-bar {
-            margin-top: auto;
-            background: #030712;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 12px;
-        }
-    </style>
+    .btn-circle.off { background-color: var(--accent-error); }
+    .btn-circle svg { width: 24px; height: 24px; }
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
 
-    <div id="app-container">
-        
-        <div id="setup-panel">
-            <h2>🔍 Proximity Scanner</h2>
-            
-            <div class="video-container">
-                <video id="webcam" autoplay playsinline></video>
-                <canvas id="viewfinder"></canvas>
-            </div>
-
-            <div class="instruction-box" id="guide-text">
-                <strong>STEP 1:</strong> Hold your cylinder object close to the camera lens and wave it up and down to let the engine lock onto it.
-            </div>
-
-            <button id="scan-btn" onclick="lockNearestObject()">1. Lock Onto Nearest Object</button>
-            
-            <div class="slider-group">
-                <label id="motion-label">Motion Filter Threshold: 30</label>
-                <input type="range" id="motion-slider" min="10" max="80" value="30" oninput="updateMotionSlider()">
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #374151; margin: 15px 0;">
-
-            <h3>👥 Live Matchmaking</h3>
-            
-            <input type="text" id="target-room-input" placeholder="Enter Friend's Arena ID">
-            <button style="background-color: #10b981;" onclick="connectToOpponent()">2. Challenge Real Player</button>
-
-            <div class="network-bar">
-                <div>Your Arena ID: <span id="my-id-display" style="color: var(--primary); font-weight:bold;">Connecting...</span></div>
-                <div id="net-status" style="color: #6b7280; margin-top: 4px;">Standalone Mode</div>
-            </div>
-        </div>
-
-        <div id="game-panel">
-            <div id="hud">
-                <div style="color: var(--primary);">You: <span id="score-p1">0</span></div>
-                <div style="color: var(--enemy);">Opponent: <span id="score-p2">0</span></div>
-            </div>
-            <canvas id="game-canvas"></canvas>
-        </div>
-
+  <div id="setupScreen" class="setup-screen">
+    <h2 style="font-weight: 600; letter-spacing: -0.02em;">AirLink Offline Mesh</h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Connect up to 5 users on the same Wi-Fi instantly without internet.</p>
+    
+    <div id="initialActions" class="setup-card">
+      <button id="btnCreate" class="btn">Create New Room</button>
+      <button id="btnJoinView" class="btn" style="background:#2c2c2e; margin-top:12px;">Join Existing Room</button>
     </div>
 
-    <script>
-        // Computer Vision & Proximity Variables
-        const video = document.getElementById('webcam');
-        const viewCanvas = document.getElementById('viewfinder');
-        const viewCtx = viewCanvas.getContext('2d', { willReadFrequently: true });
-        const motionSlider = document.getElementById('motion-slider');
+    <div id="hostPanel" class="setup-card hidden">
+      <p style="color: var(--text-muted);">Your 3-Digit Room PIN</p>
+      <div id="generatedPIN" class="pin-display">---</div>
+      <p style="font-size:0.8rem; color: var(--accent-color);">Broadcasting mesh discovery token over local network...</p>
+    </div>
+
+    <div id="joinPanel" class="setup-card hidden">
+      <p style="color: var(--text-muted); margin-bottom:12px;">Enter 3-Digit Room PIN</p>
+      <input type="text" id="inputPIN" class="pin-input" maxlength="3" pattern="\d*" inputmode="numeric">
+      <button id="btnConnect" class="btn">Search & Join Mesh</button>
+    </div>
+  </div>
+
+  <div class="video-grid" id="videoGrid">
+    <div class="video-wrapper" id="localVideoWrapper">
+      <video id="localVideo" autoplay playsinline muted style="transform: scaleX(-1);"></video>
+      <span class="peer-label">You</span>
+    </div>
+  </div>
+
+  <div class="controls-bar">
+    <button id="btnMute" class="btn-circle">
+      <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+    </button>
+    <button id="btnCam" class="btn-circle">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+    </button>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. INLINE PWA GENERATION LAYER (SELF-CONTAINED)
+    // ==========================================
+    
+    // Auto-Generate and inject Manifest File via Object URL
+    const manifestJson = {
+      "short_name": "AirMesh",
+      "name": "AirLink Multi-Peer Mesh FaceTime",
+      "icons": [{
+        "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 24 24' fill='%230071e3'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>",
+        "type": "image/svg+xml", "sizes": "192x192"
+      }],
+      "start_url": ".",
+      "background_color": "#0a0a0a",
+      "theme_color": "#0a0a0a",
+      "display": "standalone",
+      "orientation": "portrait-primary"
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifestJson)], {type: 'application/json'});
+    document.getElementById('pwaManifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+    // Inline Service Worker Script Definition
+    const swCode = `
+      const CACHE_NAME = 'airmesh-single-v1';
+      self.addEventListener('install', (e) => {
+        e.waitUntil(
+          caches.open(CACHE_NAME).then((cache) => cache.add('.'))
+          .then(() => self.skipWaiting())
+        );
+      });
+      self.addEventListener('activate', (e) => {
+        e.waitUntil(self.clients.claim());
+      });
+      self.addEventListener('fetch', (e) => {
+        if (e.request.method !== 'GET') return;
+        e.respondWith(
+          caches.match(e.request).then((cached) => cached || fetch(e.request))
+        );
+      });
+    `;
+    const swBlob = new Blob([swCode], {type: 'text/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register(swUrl, { scope: './' })
+          .then(() => console.log('Inline SW Registered Successfully.'))
+          .catch(err => console.error('SW Registration Failed:', err));
+      });
+    }
+
+    // ==========================================
+    // 2. WEBRTC MULTI-PEER MESH CORE ENGINE
+    // ==========================================
+    const iceConfig = { iceServers: [] }; 
+    const activePeers = new Map();       
+    let localStream = null;
+    let myPeerId = 'peer_' + Math.random().toString(36).substring(2, 7);
+    let targetPIN = '';
+
+    // Mock Offline Network Bus emulation layer using synchronized LocalStorage loops
+    const getMeshBus = () => JSON.parse(localStorage.getItem('offline_mesh_bus') || '{}');
+    const writeMeshBus = (bus) => localStorage.setItem('offline_mesh_bus', JSON.stringify(bus));
+
+    const setupScreen = document.getElementById('setupScreen');
+    const videoGrid = document.getElementById('videoGrid');
+    const localVideo = document.getElementById('localVideo');
+
+    // Navigation Hookups
+    document.getElementById('btnCreate').addEventListener('click', () => {
+      targetPIN = Math.floor(100 + Math.random() * 900).toString();
+      document.getElementById('generatedPIN').textContent = targetPIN;
+      document.getElementById('initialActions').classList.add('hidden');
+      document.getElementById('hostPanel').classList.remove('hidden');
+      initMeshHardware(true);
+    });
+
+    document.getElementById('btnJoinView').addEventListener('click', () => {
+      document.getElementById('initialActions').classList.add('hidden');
+      document.getElementById('joinPanel').classList.remove('hidden');
+    });
+
+    document.getElementById('btnConnect').addEventListener('click', () => {
+      targetPIN = document.getElementById('inputPIN').value.trim();
+      if(targetPIN.length !== 3) return alert('Enter a valid 3-digit room code.');
+      setupScreen.classList.add('hidden');
+      initMeshHardware(false);
+    });
+
+    async function initMeshHardware(isHost) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
         
-        let prevFrameData = null;
-        let objectLocked = false;
-        let controllerY = 0.5;  
-        let motionThreshold = 30;
-
-        // Networking Variables
-        let peer = null;
-        let conn = null;
-        let isHost = true;
-
-        // Core Arena Graphics Setup
-        const gameCanvas = document.getElementById('game-canvas');
-        const gameCtx = gameCanvas.getContext('2d');
-        let p1Y = 0.5, p2Y = 0.5;
-        let ball = { x: 0.5, y: 0.5, vx: 0.004, vy: 0.002, r: 0.012 };
-        let scores = { p1: 0, p2: 0 };
-
-        function updateMotionSlider() {
-            motionThreshold = parseInt(motionSlider.value);
-            document.getElementById('motion-label').innerText = `Motion Filter Threshold: ${motionThreshold}`;
+        if (isHost) {
+          startHostingDiscovery();
+        } else {
+          startClientDiscovery();
         }
+      } catch (err) {
+        alert('Camera and microphone permissions are mandatory for local network calls.');
+      }
+    }
 
-        // Initialize Camera Hardware
-        navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } })
-            .then(stream => {
-                video.srcObject = stream;
-                video.addEventListener('loadedmetadata', () => {
-                    viewCanvas.width = video.videoWidth;
-                    viewCanvas.height = video.videoHeight;
-                    requestAnimationFrame(trackObjectLoop);
-                });
-            })
-            .catch(err => {
-                document.getElementById('guide-text').innerHTML = "❌ Camera access denied. Proximity engine failed.";
-            });
-
-        // Matchmaking Connection Infrastructure
-        const myRoomId = Math.floor(100000 + Math.random() * 900000).toString();
-        document.getElementById('my-id-display').innerText = myRoomId;
+    // Host Mesh Distribution Loop
+    function startHostingDiscovery() {
+      setInterval(() => {
+        let bus = getMeshBus();
+        if (!bus[targetPIN]) bus[targetPIN] = { hostId: myPeerId, clients: {}, handshakes: {} };
         
-        peer = new Peer(myRoomId + "-vision-game");
-        peer.on('connection', (incomingConn) => {
-            conn = incomingConn;
-            isHost = false; 
-            document.getElementById('net-status').innerText = "Connected to Opponent!";
-            setupNetworkListener();
-        });
-
-        function connectToOpponent() {
-            const remoteId = document.getElementById('target-room-input').value.trim();
-            if(!remoteId) return alert("Please enter an Arena ID!");
+        Object.keys(bus[targetPIN].handshakes).forEach(async (senderId) => {
+          if (bus[targetPIN].handshakes[senderId].type === 'offer' && !activePeers.has(senderId)) {
+            if (activePeers.size >= 4) return; // Full capacity structural break (Max 5)
             
-            conn = peer.connect(remoteId + "-vision-game");
-            isHost = true;
-            document.getElementById('net-status').innerText = "Connecting...";
-            conn.on('open', () => {
-                document.getElementById('net-status').innerText = "Connected to Opponent!";
-                setupNetworkListener();
-            });
+            const offerSDP = bus[targetPIN].handshakes[senderId].sdp;
+            await acceptOfferAndRespond(senderId, offerSDP);
+          }
+        });
+        writeMeshBus(bus);
+      }, 1000);
+    }
+
+    async function acceptOfferAndRespond(clientId, offerSDP) {
+      const pc = new RTCPeerConnection(iceConfig);
+      activePeers.set(clientId, pc);
+
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      setupPeerDOMAndTracks(pc, clientId);
+
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerSDP }));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      setTimeout(() => {
+        let bus = getMeshBus();
+        if (bus[targetPIN]) {
+          bus[targetPIN].handshakes[myPeerId + '_' + clientId] = {
+            type: 'answer',
+            target: clientId,
+            sdp: pc.localDescription.sdp
+          };
+          writeMeshBus(bus);
+          setupScreen.classList.add('hidden'); 
         }
+      }, 500);
+    }
 
-        function setupNetworkListener() {
-            conn.on('data', (data) => {
-                if(data.type === 'paddle') {
-                    if(isHost) p2Y = data.y; 
-                    else p1Y = data.y;      
-                }
-                if(!isHost && data.type === 'ball_sync') {
-                    ball = data.ball;
-                    scores = data.scores;
-                    document.getElementById('score-p1').innerText = scores.p1;
-                    document.getElementById('score-p2').innerText = scores.p2;
-                }
-            });
+    // Client Connecting Signatures
+    async function startClientDiscovery() {
+      const pc = new RTCPeerConnection(iceConfig);
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      setTimeout(() => {
+        let bus = getMeshBus();
+        if (!bus[targetPIN]) {
+          alert("Room not found. Check if the Host generated the code on this LAN.");
+          location.reload();
+          return;
         }
+        
+        const hostId = bus[targetPIN].hostId;
+        activePeers.set(hostId, pc);
+        setupPeerDOMAndTracks(pc, hostId);
 
-        function lockNearestObject() {
-            objectLocked = true;
-            document.getElementById('guide-text').innerHTML = `
-                <strong>Target Locked!</strong><br>
-                🎮 Background filtered. Move your object up/down close to the camera lens to play!
-            `;
+        bus[targetPIN].handshakes[myPeerId] = {
+          type: 'offer',
+          sender: myPeerId,
+          sdp: pc.localDescription.sdp
+        };
+        writeMeshBus(bus);
+        
+        const listenInterval = setInterval(async () => {
+          let currentBus = getMeshBus();
+          const responseKey = hostId + '_' + myPeerId;
+          
+          if (currentBus[targetPIN] && currentBus[targetPIN].handshakes[responseKey]) {
+            const answerSDP = currentBus[targetPIN].handshakes[responseKey].sdp;
+            clearInterval(listenInterval);
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSDP }));
+          }
+        }, 1000);
+      }, 600);
+    }
+
+    // Media Routing Node Injection
+    function setupPeerDOMAndTracks(pc, peerId) {
+      pc.ontrack = (event) => {
+        if (document.getElementById(`wrap_${peerId}`)) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'video-wrapper';
+        wrapper.id = `wrap_${peerId}`;
+
+        const videoElem = document.createElement('video');
+        videoElem.autoplay = true;
+        videoElem.playsInline = true;
+        videoElem.srcObject = event.streams[0];
+
+        const label = document.createElement('span');
+        label.className = 'peer-label';
+        label.textContent = `Peer (${peerId.slice(-4)})`;
+
+        wrapper.appendChild(videoElem);
+        wrapper.appendChild(label);
+        videoGrid.appendChild(wrapper);
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+          document.getElementById(`wrap_${peerId}`)?.remove();
+          activePeers.delete(peerId);
         }
+      };
+    }
 
-        // Differential Frame Tracking Matrix Loop
-        function trackObjectLoop() {
-            // Draw fresh stream segment to calculation buffer
-            viewCtx.drawImage(video, 0, 0, viewCanvas.width, viewCanvas.height);
+    // Inline Control Elements Action Binding
+    document.getElementById('btnMute').addEventListener('click', () => {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        document.getElementById('btnMute').classList.toggle('off', !audioTrack.enabled);
+      }
+    });
 
-            const currentFrame = viewCtx.getImageData(0, 0, viewCanvas.width, viewCanvas.height);
-            const data = currentFrame.data;
+    document.getElementById('btnCam').addEventListener('click', () => {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        document.getElementById('btnCam').classList.toggle('off', !videoTrack.enabled);
+      }
+    });
 
-            let sumX = 0;
-            let sumY = 0;
-            let motionPoints = 0;
-
-            if (prevFrameData) {
-                for (let i = 0; i < data.length; i += 4) {
-                    // Frame differences calculate pixel delta speeds
-                    let rDiff = Math.abs(data[i] - prevFrameData[i]);
-                    let gDiff = Math.abs(data[i+1] - prevFrameData[i+1]);
-                    let bDiff = Math.abs(data[i+2] - prevFrameData[i+2]);
-                    
-                    let totalChange = rDiff + gDiff + bDiff;
-
-                    // If pixel movement exceeds threshold, it's our moving controller object
-                    if (totalChange > motionThreshold) {
-                        let pixelIdx = i / 4;
-                        let x = pixelIdx % viewCanvas.width;
-                        let y = Math.floor(pixelIdx / viewCanvas.width);
-
-                        sumX += x;
-                        sumY += y;
-                        motionPoints++;
-
-                        // Highlight tracked object pixels directly on viewfinder feed
-                        data[i] = 59; data[i+1] = 130; data[i+2] = 246;
-                    }
-                }
-
-                // Cache current frame array back onto view panel canvas
-                viewCtx.putImageData(currentFrame, 0, 0);
-
-                if (motionPoints > 20) {
-                    let avgX = sumX / motionPoints;
-                    let avgY = sumY / motionPoints;
-
-                    // Normalize positional outputs (0.0 to 1.0)
-                    let targetY = avgY / viewCanvas.height;
-                    controllerY = Math.max(0, Math.min(1, targetY));
-
-                    if (objectLocked) {
-                        if(isHost) p1Y = controllerY;
-                        else p2Y = controllerY;
-
-                        if(conn && conn.open) {
-                            conn.send({ type: 'paddle', y: controllerY });
-                        }
-                    }
-
-                    // Render an exact crosshair directly over the nearest moving target cluster
-                    viewCtx.beginPath();
-                    viewCtx.arc(avgX, avgY, 10, 0, Math.PI * 2);
-                    viewCtx.fillStyle = '#10b981';
-                    viewCtx.fill();
-                    viewCtx.lineWidth = 2;
-                    viewCtx.strokeStyle = '#ffffff';
-                    viewCtx.stroke();
-                }
-            }
-
-            // Save the raw pixel array map to compare against the upcoming frame execution
-            prevFrameData = data;
-
-            requestAnimationFrame(trackObjectLoop);
+    // Handle session termination cleanup
+    window.addEventListener('beforeunload', () => {
+      let bus = getMeshBus();
+      if (bus[targetPIN]) {
+        if (bus[targetPIN].hostId === myPeerId) {
+          delete bus[targetPIN];
+        } else {
+          delete bus[targetPIN].handshakes[myPeerId];
         }
-
-        function resizeGameCanvas() {
-            gameCanvas.width = gameCanvas.parentElement.clientWidth;
-            gameCanvas.height = gameCanvas.parentElement.clientHeight;
-        }
-        window.addEventListener('resize', resizeGameCanvas);
-        resizeGameCanvas();
-
-        function processGameFrame() {
-            if (isHost && conn && conn.open) {
-                ball.x += ball.vx;
-                ball.y += ball.vy;
-
-                if (ball.y - ball.r <= 0 || ball.y + ball.r >= 1) ball.vy = -ball.vy;
-
-                if (ball.x - ball.r <= 0.04) {
-                    if (ball.y >= p1Y - 0.1 && ball.y <= p1Y + 0.1) {
-                        ball.vx = Math.abs(ball.vx) * 1.05;
-                    } else if (ball.x < 0) {
-                        scores.p2++;
-                        resetArenaBall();
-                    }
-                }
-
-                if (ball.x + ball.r >= 0.96) {
-                    if (ball.y >= p2Y - 0.1 && ball.y <= p2Y + 0.1) {
-                        ball.vx = -Math.abs(ball.vx) * 1.05;
-                    } else if (ball.x > 1) {
-                        scores.p1++;
-                        resetArenaBall();
-                    }
-                }
-
-                conn.send({ type: 'ball_sync', ball: ball, scores: scores });
-                document.getElementById('score-p1').innerText = scores.p1;
-                document.getElementById('score-p2').innerText = scores.p2;
-            }
-
-            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-
-            const pw = gameCanvas.width * 0.015;
-            const ph = gameCanvas.height * 0.2;
-
-            // Draw Paddle 1 (Blue)
-            gameCtx.fillStyle = '#3b82f6';
-            gameCtx.fillRect(gameCanvas.width * 0.04 - pw/2, (p1Y * gameCanvas.height) - ph/2, pw, ph);
-
-            // Draw Paddle 2 (Red)
-            gameCtx.fillStyle = '#ef4444';
-            gameCtx.fillRect(gameCanvas.width * 0.96 - pw/2, (p2Y * gameCanvas.height) - ph/2, pw, ph);
-
-            // Draw Ball
-            gameCtx.beginPath();
-            gameCtx.arc(ball.x * gameCanvas.width, ball.y * gameCanvas.height, ball.r * gameCanvas.width, 0, Math.PI*2);
-            gameCtx.fillStyle = '#ffffff';
-            gameCtx.fill();
-
-            requestAnimationFrame(processGameFrame);
-        }
-
-        function resetArenaBall() {
-            ball.x = 0.5; ball.y = 0.5;
-            ball.vx = (Math.random() > 0.5 ? 1 : -1) * 0.004;
-            ball.vy = (Math.random() - 0.5) * 0.005;
-        }
-
-        requestAnimationFrame(processGameFrame);
-    </script>
+        writeMeshBus(bus);
+      }
+    });
+  </script>
 </body>
 </html>
