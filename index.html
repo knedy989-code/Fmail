@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vision-Craft: Object Controller Arena</title>
+    <title>Vision-Craft: Proximity Object Arena</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -39,6 +39,7 @@
             padding: 20px;
             box-sizing: border-box;
             z-index: 10;
+            overflow-y: auto;
         }
 
         /* Right Side: Main Arena Game */
@@ -49,7 +50,7 @@
         }
 
         video {
-            display: none; /* Hidden data processing element */
+            display: none; /* Hidden processing data */
         }
 
         .video-container {
@@ -104,6 +105,25 @@
             font-size: 14px;
         }
 
+        .slider-group {
+            margin: 10px 0 20px 0;
+            background: #1e293b;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .slider-group label {
+            display: block;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 5px;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            margin: 0;
+        }
+
         canvas#game-canvas {
             width: 100%;
             height: 100%;
@@ -137,7 +157,7 @@
     <div id="app-container">
         
         <div id="setup-panel">
-            <h2>🔍 Object Scanner</h2>
+            <h2>🔍 Proximity Scanner</h2>
             
             <div class="video-container">
                 <video id="webcam" autoplay playsinline></video>
@@ -145,15 +165,19 @@
             </div>
 
             <div class="instruction-box" id="guide-text">
-                <strong>STEP 1:</strong> Place your cylinder object (cup, bottle, roll) completely in front of the camera lens and press "Scan Controller".
+                <strong>STEP 1:</strong> Hold your cylinder object close to the camera lens and wave it up and down to let the engine lock onto it.
             </div>
 
-            <button id="scan-btn" onclick="calibrateObjectColor()">1. Scan Cylinder Object</button>
+            <button id="scan-btn" onclick="lockNearestObject()">1. Lock Onto Nearest Object</button>
             
+            <div class="slider-group">
+                <label id="motion-label">Motion Filter Threshold: 30</label>
+                <input type="range" id="motion-slider" min="10" max="80" value="30" oninput="updateMotionSlider()">
+            </div>
+
             <hr style="border: 0; border-top: 1px solid #374151; margin: 15px 0;">
 
             <h3>👥 Live Matchmaking</h3>
-            <div style="font-size: 13px; margin-bottom: 8px; color: #9ca3af;">Connect with real players over peer network:</div>
             
             <input type="text" id="target-room-input" placeholder="Enter Friend's Arena ID">
             <button style="background-color: #10b981;" onclick="connectToOpponent()">2. Challenge Real Player</button>
@@ -175,13 +199,16 @@
     </div>
 
     <script>
-        // Computer Vision & Tracking Variables
+        // Computer Vision & Proximity Variables
         const video = document.getElementById('webcam');
         const viewCanvas = document.getElementById('viewfinder');
         const viewCtx = viewCanvas.getContext('2d', { willReadFrequently: true });
+        const motionSlider = document.getElementById('motion-slider');
         
-        let targetColor = null; // Stores RGB color profile of your scanned object
-        let controllerY = 0.5;  // Tracks current position of scanned object (0 to 1)
+        let prevFrameData = null;
+        let objectLocked = false;
+        let controllerY = 0.5;  
+        let motionThreshold = 30;
 
         // Networking Variables
         let peer = null;
@@ -195,7 +222,12 @@
         let ball = { x: 0.5, y: 0.5, vx: 0.004, vy: 0.002, r: 0.012 };
         let scores = { p1: 0, p2: 0 };
 
-        // Initialize Local Hardware Camera
+        function updateMotionSlider() {
+            motionThreshold = parseInt(motionSlider.value);
+            document.getElementById('motion-label').innerText = `Motion Filter Threshold: ${motionThreshold}`;
+        }
+
+        // Initialize Camera Hardware
         navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } })
             .then(stream => {
                 video.srcObject = stream;
@@ -206,17 +238,17 @@
                 });
             })
             .catch(err => {
-                document.getElementById('guide-text').innerHTML = "❌ Camera access denied. Vision controller tracking unavailable.";
+                document.getElementById('guide-text').innerHTML = "❌ Camera access denied. Proximity engine failed.";
             });
 
-        // Initialize Peer Matchmaking Infrastructure
+        // Matchmaking Connection Infrastructure
         const myRoomId = Math.floor(100000 + Math.random() * 900000).toString();
         document.getElementById('my-id-display').innerText = myRoomId;
         
         peer = new Peer(myRoomId + "-vision-game");
         peer.on('connection', (incomingConn) => {
             conn = incomingConn;
-            isHost = false; // Guest screen yields physics authority to Room Creator
+            isHost = false; 
             document.getElementById('net-status').innerText = "Connected to Opponent!";
             setupNetworkListener();
         });
@@ -237,8 +269,8 @@
         function setupNetworkListener() {
             conn.on('data', (data) => {
                 if(data.type === 'paddle') {
-                    if(isHost) p2Y = data.y; // If host, remote player controls Paddle 2
-                    else p1Y = data.y;      // If guest, remote player controls Paddle 1
+                    if(isHost) p2Y = data.y; 
+                    else p1Y = data.y;      
                 }
                 if(!isHost && data.type === 'ball_sync') {
                     ball = data.ball;
@@ -249,85 +281,87 @@
             });
         }
 
-        // Object Scanning Routine
-        function calibrateObjectColor() {
-            // Sample pixels right out of the center frame to bind to your specific physical cylinder
-            const cx = viewCanvas.width / 2;
-            const cy = viewCanvas.height / 2;
-            const imgData = viewCtx.getImageData(cx - 5, cy - 5, 10, 10).data;
-            
-            let r=0, g=0, b=0, count=0;
-            for(let i=0; i<imgData.length; i+=4) {
-                r += imgData[i];
-                g += imgData[i+1];
-                b += imgData[i+2];
-                count++;
-            }
-            targetColor = { r: r/count, g: g/count, b: b/count };
-            
-            // Dynamic generation of UI instructions based on parsed properties
+        function lockNearestObject() {
+            objectLocked = true;
             document.getElementById('guide-text').innerHTML = `
-                <strong>Cylinder Scanned!</strong><br>
-                🎨 Color Lock: <span style="display:inline-block; width:12px; height:12px; background:rgb(${targetColor.r},${targetColor.g},${targetColor.b})"></span><br>
-                🎮 <strong>Instructions:</strong> Move your object Up and Down in front of the camera like a flight joystick to slide your paddle!
+                <strong>Target Locked!</strong><br>
+                🎮 Background filtered. Move your object up/down close to the camera lens to play!
             `;
         }
 
-        // Processing loop analyzing color changes inside frames
+        // Differential Frame Tracking Matrix Loop
         function trackObjectLoop() {
+            // Draw fresh stream segment to calculation buffer
             viewCtx.drawImage(video, 0, 0, viewCanvas.width, viewCanvas.height);
 
-            if (targetColor) {
-                const imgData = viewCtx.getImageData(0, 0, viewCanvas.width, viewCanvas.height);
-                const data = imgData.data;
+            const currentFrame = viewCtx.getImageData(0, 0, viewCanvas.width, viewCanvas.height);
+            const data = currentFrame.data;
 
-                let sumY = 0;
-                let matchedPixels = 0;
+            let sumX = 0;
+            let sumY = 0;
+            let motionPoints = 0;
 
-                // Color-matching algorithm checks frame matrix for matching pixels
+            if (prevFrameData) {
                 for (let i = 0; i < data.length; i += 4) {
-                    let r = data[i];
-                    let g = data[i+1];
-                    let b = data[i+2];
-
-                    // Simple Euclidean distance thresholds color similarity
-                    let dist = Math.sqrt((r-targetColor.r)**2 + (g-targetColor.g)**2 + (b-targetColor.b)**2);
-                    if (dist < 45) { // Match sensitivity barrier
-                        let pixelIdx = i / 4;
-                        let y = Math.floor(pixelIdx / viewCanvas.width);
-                        sumY += y;
-                        matchedPixels++;
-
-                        // Visual overlay on viewfinder tracking match data
-                        data[i] = 16; data[i+1] = 185; data[i+2] = 129;
-                    }
-                }
-
-                if (matchedPixels > 30) {
-                    let avgY = sumY / matchedPixels;
-                    controllerY = avgY / viewCanvas.height; // Normalize position (0.0 to 1.0)
+                    // Frame differences calculate pixel delta speeds
+                    let rDiff = Math.abs(data[i] - prevFrameData[i]);
+                    let gDiff = Math.abs(data[i+1] - prevFrameData[i+1]);
+                    let bDiff = Math.abs(data[i+2] - prevFrameData[i+2]);
                     
-                    // Assign positions depending on Host or Guest states
-                    if(isHost) p1Y = controllerY;
-                    else p2Y = controllerY;
+                    let totalChange = rDiff + gDiff + bDiff;
 
-                    // Send updated movement across the peer network to the other human
-                    if(conn && conn.open) {
-                        conn.send({ type: 'paddle', y: controllerY });
+                    // If pixel movement exceeds threshold, it's our moving controller object
+                    if (totalChange > motionThreshold) {
+                        let pixelIdx = i / 4;
+                        let x = pixelIdx % viewCanvas.width;
+                        let y = Math.floor(pixelIdx / viewCanvas.width);
+
+                        sumX += x;
+                        sumY += y;
+                        motionPoints++;
+
+                        // Highlight tracked object pixels directly on viewfinder feed
+                        data[i] = 59; data[i+1] = 130; data[i+2] = 246;
                     }
                 }
-                viewCtx.putImageData(imgData, 0, 0);
-            } else {
-                // Visual Reticle Helper Overlay
-                viewCtx.strokeStyle = '#3b82f6';
-                viewCtx.lineWidth = 3;
-                viewCtx.strokeRect(viewCanvas.width/2 - 25, viewCanvas.height/2 - 25, 50, 50);
+
+                // Cache current frame array back onto view panel canvas
+                viewCtx.putImageData(currentFrame, 0, 0);
+
+                if (motionPoints > 20) {
+                    let avgX = sumX / motionPoints;
+                    let avgY = sumY / motionPoints;
+
+                    // Normalize positional outputs (0.0 to 1.0)
+                    let targetY = avgY / viewCanvas.height;
+                    controllerY = Math.max(0, Math.min(1, targetY));
+
+                    if (objectLocked) {
+                        if(isHost) p1Y = controllerY;
+                        else p2Y = controllerY;
+
+                        if(conn && conn.open) {
+                            conn.send({ type: 'paddle', y: controllerY });
+                        }
+                    }
+
+                    // Render an exact crosshair directly over the nearest moving target cluster
+                    viewCtx.beginPath();
+                    viewCtx.arc(avgX, avgY, 10, 0, Math.PI * 2);
+                    viewCtx.fillStyle = '#10b981';
+                    viewCtx.fill();
+                    viewCtx.lineWidth = 2;
+                    viewCtx.strokeStyle = '#ffffff';
+                    viewCtx.stroke();
+                }
             }
+
+            // Save the raw pixel array map to compare against the upcoming frame execution
+            prevFrameData = data;
 
             requestAnimationFrame(trackObjectLoop);
         }
 
-        // Render Canvas Sizing Rules
         function resizeGameCanvas() {
             gameCanvas.width = gameCanvas.parentElement.clientWidth;
             gameCanvas.height = gameCanvas.parentElement.clientHeight;
@@ -335,7 +369,6 @@
         window.addEventListener('resize', resizeGameCanvas);
         resizeGameCanvas();
 
-        // Standard Physics Loop running concurrently on host end
         function processGameFrame() {
             if (isHost && conn && conn.open) {
                 ball.x += ball.vx;
@@ -343,7 +376,6 @@
 
                 if (ball.y - ball.r <= 0 || ball.y + ball.r >= 1) ball.vy = -ball.vy;
 
-                // Paddle 1 Tracking Bounds
                 if (ball.x - ball.r <= 0.04) {
                     if (ball.y >= p1Y - 0.1 && ball.y <= p1Y + 0.1) {
                         ball.vx = Math.abs(ball.vx) * 1.05;
@@ -353,7 +385,6 @@
                     }
                 }
 
-                // Paddle 2 Tracking Bounds
                 if (ball.x + ball.r >= 0.96) {
                     if (ball.y >= p2Y - 0.1 && ball.y <= p2Y + 0.1) {
                         ball.vx = -Math.abs(ball.vx) * 1.05;
@@ -368,7 +399,6 @@
                 document.getElementById('score-p2').innerText = scores.p2;
             }
 
-            // RENDERING GAME VIEWS
             gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
 
             const pw = gameCanvas.width * 0.015;
