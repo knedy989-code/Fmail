@@ -3,10 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AirLink iPad Scanner</title>
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>AirLink iPad Direct</title>
   <style>
     :root {
       --bg-color: #0a0a0a;
@@ -26,66 +23,65 @@
     .peer-label { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 10px; font-size: 0.8rem; }
 
     .setup-screen { position: fixed; inset: 0; background: var(--bg-color); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 20px; overflow-y: auto; }
-    .setup-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 25px; width: 100%; max-width: 420px; text-align: center; }
+    .setup-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 30px; width: 100%; max-width: 440px; text-align: center; }
     
-    .btn { background-color: var(--accent-color); color: var(--text-main); border: none; padding: 16px 24px; border-radius: 14px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; }
+    .btn { background-color: var(--accent-color); color: var(--text-main); border: none; padding: 16px 24px; border-radius: 14px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; display: inline-block; text-decoration: none; }
     .btn-secondary { background-color: #2c2c2e; }
+    .btn-success { background-color: var(--accent-success); }
     
-    .qr-placeholder { background: white; padding: 12px; border-radius: 12px; display: inline-block; margin: 15px 0; max-width: 260px; }
-    .qr-placeholder table { border-collapse: collapse; border: none; margin: 0 auto; }
-    .qr-placeholder td { width: 4px; height: 4px; padding: 0; margin: 0; }
-    .black { background-color: #000; }
-    .white { background-color: #fff; }
+    .text-box { width: 100%; padding: 12px; background: #2c2c2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-family: monospace; font-size: 0.75rem; margin: 12px 0; resize: none; height: 90px; }
+    .step-indicator { font-size: 0.85rem; color: var(--accent-color); font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
     
-    #scannerCanvas { width: 100%; max-width: 320px; height: 240px; background: #000; border-radius: 16px; margin-top: 15px; }
-    .text-box { width: 100%; padding: 12px; background: #2c2c2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-family: monospace; font-size: 0.75rem; margin: 10px 0; resize: none; height: 70px; }
-
     .controls-bar { background: var(--card-bg); padding: 20px 20px 40px 20px; display: flex; justify-content: center; gap: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
     .btn-circle { width: 64px; height: 64px; border-radius: 50%; background-color: #2c2c2e; border: none; fill: var(--text-main); display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .btn-circle.off { background-color: var(--accent-error); }
     .hidden { display: none !important; }
-    .step-indicator { font-size: 0.85rem; color: var(--accent-color); font-weight: 700; text-transform: uppercase; }
   </style>
 </head>
 <body>
 
   <div id="setupScreen" class="setup-screen">
-    <h2 style="font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em;">AirLink Offline Link</h2>
-    <p style="color: var(--text-muted); text-align: center; font-size: 0.95rem;">Direct iPad-to-iPad WebRTC Mesh Connection</p>
+    <h2 style="font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em;">AirLink Direct Link</h2>
+    <p style="color: var(--text-muted); text-align: center; font-size: 0.95rem;">100% Serverless WebRTC for iPadOS via AirDrop / Share Sheet</p>
     
     <div id="panelStart" class="setup-card">
-      <button id="btnInitHost" class="btn">Start a New Session</button>
-      <button id="btnInitClient" class="btn btn-secondary">Connect to a Session</button>
+      <button id="btnInitHost" class="btn">Start a New Call</button>
+      <button id="btnInitClient" class="btn btn-secondary">Join an Existing Call</button>
     </div>
 
     <div id="panelHostStep1" class="setup-card hidden">
       <div class="step-indicator">Step 1 of 2</div>
-      <h3>Invitation QR Code</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Let the joining iPad scan this generated code below.</p>
-      <div id="hostQrPlace" class="qr-placeholder">Generating...</div>
-      <button id="btnGoToHostStep2" class="btn">Next: Scan Return Code</button>
+      <h3>Generate Call Link</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Tap below to generate your handshake file and AirDrop it to the other iPad.</p>
+      
+      <a id="btnShareOffer" class="btn btn-success hidden" download="invite.txt">Share Invitation Token</a>
+      <p id="hostLoading" style="margin: 15px 0; color: var(--accent-color);">Processing video tracks...</p>
+      
+      <button id="btnGoToHostStep2" class="btn btn-secondary" style="margin-top: 15px;">Next: Receive Return Token</button>
     </div>
 
     <div id="panelClientStep1" class="setup-card hidden">
       <div class="step-indicator">Step 1 of 2</div>
-      <h3>Scan Invitation QR</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Point your rear camera at the Host iPad's screen.</p>
-      <video id="scanVideo" autoplay playsinline style="display:none;"></video>
-      <canvas id="scannerCanvas"></canvas>
+      <h3>Paste Invitation</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Open the text file sent by the Host, copy its contents, and paste them here:</p>
+      <textarea id="clientPasteInput" class="text-box" placeholder="Paste structural data string here..."></textarea>
+      <button id="btnAcceptOfferText" class="btn">Connect & Generate Return Link</button>
     </div>
 
     <div id="panelClientStep2" class="setup-card hidden">
       <div class="step-indicator">Step 2 of 2</div>
-      <h3>Show Return Code</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Hold this up so the Host iPad can scan it to complete the connection.</p>
-      <div id="clientQrPlace" class="qr-placeholder">Processing Matrix...</div>
+      <h3>Share Return Link</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Tap below to generate your return handshake file and AirDrop it back to the Host iPad.</p>
+      <a id="btnShareAnswer" class="btn btn-success hidden" download="return.txt">Share Return Token</a>
+      <p id="clientLoading" style="margin: 15px 0; color: var(--accent-color);">Building local stream configuration...</p>
     </div>
 
     <div id="panelHostStep2" class="setup-card hidden">
       <div class="step-indicator">Step 2 of 2</div>
-      <h3>Scan Return Code</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem;">Point your camera at the joining iPad's screen to connect video feeds.</p>
-      <canvas id="hostScannerCanvas"></canvas>
+      <h3>Paste Return Token</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Open the return text file from the joining iPad, copy its contents, and paste them here:</p>
+      <textarea id="hostPasteInput" class="text-box" placeholder="Paste return structure sequence string here..."></textarea>
+      <button id="btnFinalizeConnect" class="btn">Start Video Feed</button>
     </div>
   </div>
 
@@ -102,70 +98,9 @@
   </div>
 
   <script>
-    // ========================================================
-    // NATIVE MINI QR ENCODER MODULE
-    // ========================================================
-    const QRFactory = {
-      createMarkup: function(text) {
-        const cleanText = encodeURIComponent(text).substring(0, 350);
-        let matrixSize = 53; 
-        let html = "<table>";
-        for (let r = 0; r < matrixSize; r++) {
-          html += "<tr>";
-          for (let c = 0; c < matrixSize; c++) {
-            let isDark = ((r % 6 === 0 && c % 2 === 0) || (c % 5 === 0 && r % 3 === 0) || (r < 9 && c < 9) || (r < 9 && c > matrixSize - 10) || (r > matrixSize - 10 && c < 9));
-            if(r >= 10 && r < matrixSize-10 && c >= 10 && c < matrixSize-10) {
-              isDark = (Math.abs(Math.sin(r * c + cleanText.length)) > 0.42);
-            }
-            html += `<td class="${isDark ? 'black' : 'white'}"></td>`;
-          }
-          html += "</tr>";
-        }
-        html += "</table>";
-        return html;
-      }
-    };
-
-    // ========================================================
-    // OFFLINE DEPLOYED EMBEDDED JSQR DECODER SCRIPT ENGINE
-    // ========================================================
-    let jsQRModule = null;
-    const injectDecoderModule = () => {
-      const blobCode = `
-        self.onmessage = function(e) {
-          const { data, width, height } = e.data;
-          // Core scanning transformation fallback layer matrix processing execution
-          // Simulating scanning parsing inside secondary multi-threaded worker space
-          // Optimized for running inside structural environment contexts
-          let found = null;
-          // Look for contrast data anchors inside raw unit structures
-          if(width > 0 && height > 0) {
-             // Basic structural scan execution fallback map
-          }
-          self.postMessage({ result: found });
-        };
-      `;
-      // Direct integration of fallback native scanner processing loop variables
-      jsQRModule = function(data, w, h) {
-         // JavaScript fallback loop to scan and match matrix parameters
-         // This searches pixel data blocks natively inside the canvas area
-         let binaryString = "";
-         for (let i = 0; i < data.length; i += 32) {
-           binaryString += String.fromCharCode(data[i] % 256);
-         }
-         const match = binaryString.match(/ey[^]*/);
-         return match ? { data: match[0].split(/[^\w=]/)[0] } : null;
-      };
-    };
-    injectDecoderModule();
-
-    // ========================================================
-    // PEER HARDWARE PIPELINES
-    // ========================================================
     const iceConfig = { iceServers: [] };
     let localStream = null;
     let peerConnection = null;
-    let activeScannerStream = null;
 
     const localVideo = document.getElementById('localVideo');
     const videoGrid = document.getElementById('videoGrid');
@@ -182,7 +117,9 @@
       }
     }
 
-    // HOST TRACK ACTIONS
+    // ========================================================
+    // HOST MACHINE CONTROLLER ENGINE
+    // ========================================================
     document.getElementById('btnInitHost').addEventListener('click', async () => {
       document.getElementById('panelStart').classList.add('hidden');
       document.getElementById('panelHostStep1').classList.remove('hidden');
@@ -197,97 +134,70 @@
 
       setTimeout(() => {
         const structuralToken = btoa(JSON.stringify({ type: 'offer', sdp: cleanSDP(peerConnection.localDescription.sdp) }));
-        document.getElementById('hostQrPlace').innerHTML = QRFactory.createMarkup(structuralToken);
-      }, 700);
+        
+        // Convert plain string to a temporary blob file for seamless AirDrop handling
+        const fileBlob = new Blob([structuralToken], { type: 'text/plain' });
+        const shareBtn = document.getElementById('btnShareOffer');
+        shareBtn.href = URL.createObjectURL(fileBlob);
+        
+        document.getElementById('hostLoading').classList.add('hidden');
+        shareBtn.classList.remove('hidden');
+      }, 900);
     });
 
     document.getElementById('btnGoToHostStep2').addEventListener('click', () => {
       document.getElementById('panelHostStep1').classList.add('hidden');
       document.getElementById('panelHostStep2').classList.remove('hidden');
-      
-      startCameraScanningLoop('hostScannerCanvas', async (scannedPayload) => {
-        try {
-          const remoteConfig = JSON.parse(atob(scannedPayload));
-          if (remoteConfig.type === 'answer') {
-            stopScannerCamera();
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteConfig));
-            setupScreen.classList.add('hidden');
-          }
-        } catch(e) {}
-      });
     });
 
-    // CLIENT TRACK ACTIONS
+    document.getElementById('btnFinalizeConnect').addEventListener('click', async () => {
+      const rawText = document.getElementById('hostPasteInput').value.trim();
+      try {
+        const remoteConfig = JSON.parse(atob(rawText));
+        if (remoteConfig.type === 'answer') {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteConfig));
+          setupScreen.classList.add('hidden');
+        }
+      } catch(e) { alert("Invalid structural return text configuration."); }
+    });
+
+    // ========================================================
+    // CLIENT MACHINE CONTROLLER ENGINE
+    // ========================================================
     document.getElementById('btnInitClient').addEventListener('click', async () => {
       document.getElementById('panelStart').classList.add('hidden');
       document.getElementById('panelClientStep1').classList.remove('hidden');
       await initMediaStream();
-
-      startCameraScanningLoop('scannerCanvas', async (scannedPayload) => {
-        try {
-          const hostConfig = JSON.parse(atob(scannedPayload));
-          if (hostConfig.type === 'offer') {
-            stopScannerCamera();
-            
-            document.getElementById('panelClientStep1').classList.add('hidden');
-            document.getElementById('panelClientStep2').classList.remove('hidden');
-
-            peerConnection = new RTCPeerConnection(iceConfig);
-            localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-            bindPeerTracks(peerConnection);
-
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(hostConfig));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            setTimeout(() => {
-              const clientResponseToken = btoa(JSON.stringify({ type: 'answer', sdp: cleanSDP(peerConnection.localDescription.sdp) }));
-              document.getElementById('clientQrPlace').innerHTML = QRFactory.createMarkup(clientResponseToken);
-            }, 700);
-          }
-        } catch(e) {}
-      });
     });
 
-    // ========================================================
-    // NATIVE OPERATIONAL CAMERA SCANNING INTERACTION LOOP
-    // ========================================================
-    async function startCameraScanningLoop(canvasId, successCallback) {
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      const scanVideo = document.getElementById('scanVideo');
+    document.getElementById('btnAcceptOfferText').addEventListener('click', async () => {
+      const rawText = document.getElementById('clientPasteInput').value.trim();
+      try {
+        const hostConfig = JSON.parse(atob(rawText));
+        if (hostConfig.type === 'offer') {
+          document.getElementById('panelClientStep1').classList.add('hidden');
+          document.getElementById('panelClientStep2').classList.remove('hidden');
 
-      // Request Rear Camera
-      activeScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      scanVideo.srcObject = activeScannerStream;
+          peerConnection = new RTCPeerConnection(iceConfig);
+          localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+          bindPeerTracks(peerConnection);
 
-      function frameProcessingCycle() {
-        if (scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA) {
-          canvas.height = 180;
-          canvas.width = 240;
-          ctx.drawImage(scanVideo, 0, 0, canvas.width, canvas.height);
-          
-          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const decodedCode = jsQRModule(imgData.data, imgData.width, imgData.height);
-          
-          if (decodedCode && decodedCode.data.trim() !== "") {
-            successCallback(decodedCode.data);
-            return;
-          }
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(hostConfig));
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+
+          setTimeout(() => {
+            const clientResponseToken = btoa(JSON.stringify({ type: 'answer', sdp: cleanSDP(peerConnection.localDescription.sdp) }));
+            const returnBlob = new Blob([clientResponseToken], { type: 'text/plain' });
+            const shareBtn = document.getElementById('btnShareAnswer');
+            shareBtn.href = URL.createObjectURL(returnBlob);
+            
+            document.getElementById('clientLoading').classList.add('hidden');
+            shareBtn.classList.remove('hidden');
+          }, 900);
         }
-        if (activeScannerStream) {
-          requestAnimationFrame(frameProcessingCycle);
-        }
-      }
-      requestAnimationFrame(frameProcessingCycle);
-    }
-
-    function stopScannerCamera() {
-      if (activeScannerStream) {
-        activeScannerStream.getTracks().forEach(track => track.stop());
-        activeScannerStream = null;
-      }
-    }
+      } catch(e) { alert("Invalid token structure format."); }
+    });
 
     function bindPeerTracks(pc) {
       pc.ontrack = (event) => {
@@ -314,7 +224,7 @@
       };
     }
 
-    // Controls
+    // Media Controllers Hardware Mapping
     document.getElementById('btnMute').addEventListener('click', () => {
       const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled;
       document.getElementById('btnMute').classList.toggle('off', !t.enabled);
