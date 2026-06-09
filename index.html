@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AirLink Mesh</title>
-  
+  <title>AirLink iPad Mesh</title>
   <link rel="manifest" id="pwaManifest">
-  
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
   <style>
     :root {
       --bg-color: #0a0a0a;
@@ -20,183 +22,80 @@
       --text-main: #f5f5f7;
       --text-muted: #86868b;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+    
+    .video-grid { flex: 1; display: grid; gap: 10px; padding: 10px; background: #000; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-content: center; }
+    .video-wrapper { position: relative; background: #222; border-radius: 20px; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .peer-label { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 10px; font-size: 0.8rem; }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
+    .setup-screen { position: fixed; inset: 0; background: var(--bg-color); z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 20px; overflow-y: auto; }
+    .setup-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 25px; width: 100%; max-width: 420px; text-align: center; }
+    
+    .btn { background-color: var(--accent-color); color: var(--text-main); border: none; padding: 16px 24px; border-radius: 14px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; }
+    .btn-secondary { background-color: #2c2c2e; }
+    .btn-success { background-color: var(--accent-success); }
+    
+    .qr-container { background: white; padding: 16px; border-radius: 16px; display: inline-block; margin: 15px 0; }
+    .qr-container img { display: block; max-width: 240px; height: auto; }
+    
+    #scannerCanvas { width: 100%; max-width: 320px; height: 240px; background: #000; border-radius: 16px; margin-top: 15px; transform: scaleX(1); }
 
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      overflow: hidden;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Dynamic Grid for up to 5 people */
-    .video-grid {
-      flex: 1;
-      display: grid;
-      gap: 10px;
-      padding: 10px;
-      background: #000;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      align-content: center;
-    }
-
-    .video-wrapper {
-      position: relative;
-      background: #222;
-      border-radius: 16px;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .peer-label {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.6);
-      padding: 4px 8px;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      color: var(--text-main);
-      z-index: 2;
-    }
-
-    /* Setup & PIN Entry Overlay */
-    .setup-screen {
-      position: fixed;
-      inset: 0;
-      background: var(--bg-color);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      gap: 24px;
-    }
-
-    .setup-card {
-      background: var(--card-bg);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 24px;
-      padding: 30px;
-      width: 100%;
-      max-width: 360px;
-      text-align: center;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    }
-
-    .pin-display {
-      font-size: 3rem;
-      font-weight: 700;
-      letter-spacing: 6px;
-      color: var(--accent-success);
-      margin: 15px 0;
-    }
-
-    .pin-input {
-      background: #2c2c2e;
-      border: 2px solid transparent;
-      color: #fff;
-      font-size: 2rem;
-      text-align: center;
-      padding: 10px;
-      border-radius: 12px;
-      width: 160px;
-      letter-spacing: 8px;
-      margin-bottom: 20px;
-    }
-
-    .pin-input:focus {
-      outline: none;
-      border-color: var(--accent-color);
-    }
-
-    /* Core Controls HUD */
-    .controls-bar {
-      background: var(--card-bg);
-      padding: 20px 20px 35px 20px;
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .btn {
-      background-color: var(--accent-color);
-      color: var(--text-main);
-      border: none;
-      padding: 12px 24px;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 8px;
-    }
-
-    .btn-circle {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background-color: #2c2c2e;
-      border: none;
-      fill: var(--text-main);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
+    .controls-bar { background: var(--card-bg); padding: 20px 20px 40px 20px; display: flex; justify-content: center; gap: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .btn-circle { width: 64px; height: 64px; border-radius: 50%; background-color: #2c2c2e; border: none; fill: var(--text-main); display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .btn-circle.off { background-color: var(--accent-error); }
-    .btn-circle svg { width: 24px; height: 24px; }
     .hidden { display: none !important; }
+    
+    .step-indicator { font-size: 0.85rem; color: var(--accent-color); font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
   </style>
 </head>
 <body>
 
   <div id="setupScreen" class="setup-screen">
-    <h2 style="font-weight: 600; letter-spacing: -0.02em;">AirLink Offline Mesh</h2>
-    <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center;">Connect up to 5 users on the same Wi-Fi instantly without internet.</p>
+    <h2 style="font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em;">AirLink Offline Link</h2>
+    <p style="color: var(--text-muted); text-align: center; font-size: 0.95rem; max-width: 340px;">Zero-server direct peer mesh built for secure iPad network configurations.</p>
     
-    <div id="initialActions" class="setup-card">
-      <button id="btnCreate" class="btn">Create New Room</button>
-      <button id="btnJoinView" class="btn" style="background:#2c2c2e; margin-top:12px;">Join Existing Room</button>
+    <div id="panelStart" class="setup-card">
+      <button id="btnInitHost" class="btn">Start a New Session</button>
+      <button id="btnInitClient" class="btn btn-secondary">Connect to a Session</button>
     </div>
 
-    <div id="hostPanel" class="setup-card hidden">
-      <p style="color: var(--text-muted);">Your 3-Digit Room PIN</p>
-      <div id="generatedPIN" class="pin-display">---</div>
-      <p style="font-size:0.8rem; color: var(--accent-color);">Broadcasting mesh discovery token over local network...</p>
+    <div id="panelHostStep1" class="setup-card hidden">
+      <div class="step-indicator">Step 1 of 2</div>
+      <h3 style="margin-bottom: 5px;">Show this to Peer</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Let the incoming device scan this configuration sequence token.</p>
+      <div id="hostQrPlace" class="qr-container"></div>
+      <button id="btnGoToHostStep2" class="btn" disabled>Next: Scan Return Code</button>
     </div>
 
-    <div id="joinPanel" class="setup-card hidden">
-      <p style="color: var(--text-muted); margin-bottom:12px;">Enter 3-Digit Room PIN</p>
-      <input type="text" id="inputPIN" class="pin-input" maxlength="3" pattern="\d*" inputmode="numeric">
-      <button id="btnConnect" class="btn">Search & Join Mesh</button>
+    <div id="panelClientStep1" class="setup-card hidden">
+      <div class="step-indicator">Step 1 of 2</div>
+      <h3 style="margin-bottom: 5px;">Scan Invitation QR</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Point your iPad camera at the host's screen.</p>
+      <video id="scanVideo" autoplay playsinline style="display:none;"></video>
+      <canvas id="scannerCanvas"></canvas>
+    </div>
+
+    <div id="panelClientStep2" class="setup-card hidden">
+      <div class="step-indicator">Step 2 of 2</div>
+      <h3 style="margin-bottom: 5px;">Show Return Code</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Hold this up so the host iPad can complete the mesh connection link.</p>
+      <div id="clientQrPlace" class="qr-container"></div>
+    </div>
+
+    <div id="panelHostStep2" class="setup-card hidden">
+      <div class="step-indicator">Step 2 of 2</div>
+      <h3 style="margin-bottom: 5px;">Scan Return Code</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">Scan the return code generated on the other iPad screen.</p>
+      <canvas id="hostScannerCanvas" style="width: 100%; max-width: 320px; height: 240px; background:#000; border-radius:16px; margin-top:15px;"></canvas>
     </div>
   </div>
 
   <div class="video-grid" id="videoGrid">
-    <div class="video-wrapper" id="localVideoWrapper">
+    <div class="video-wrapper">
       <video id="localVideo" autoplay playsinline muted style="transform: scaleX(-1);"></video>
-      <span class="peer-label">You</span>
+      <span class="peer-label">You (iPad)</span>
     </div>
   </div>
 
@@ -210,252 +109,185 @@
   </div>
 
   <script>
-    // ==========================================
-    // 1. INLINE PWA GENERATION LAYER (SELF-CONTAINED)
-    // ==========================================
-    
-    // Auto-Generate and inject Manifest File via Object URL
-    const manifestJson = {
-      "short_name": "AirMesh",
-      "name": "AirLink Multi-Peer Mesh FaceTime",
-      "icons": [{
-        "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 24 24' fill='%230071e3'><path d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'/></svg>",
-        "type": "image/svg+xml", "sizes": "192x192"
-      }],
-      "start_url": ".",
-      "background_color": "#0a0a0a",
-      "theme_color": "#0a0a0a",
-      "display": "standalone",
-      "orientation": "portrait-primary"
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifestJson)], {type: 'application/json'});
-    document.getElementById('pwaManifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+    // System Constants Configuration 
+    const iceConfig = { iceServers: [] }; // Omitted server arrays forces strict offline local tracking
+    let localStream = null;
+    let peerConnection = null;
+    let activeScannerStream = null;
 
-    // Inline Service Worker Script Definition
-    const swCode = `
-      const CACHE_NAME = 'airmesh-single-v1';
-      self.addEventListener('install', (e) => {
-        e.waitUntil(
-          caches.open(CACHE_NAME).then((cache) => cache.add('.'))
-          .then(() => self.skipWaiting())
-        );
-      });
-      self.addEventListener('activate', (e) => {
-        e.waitUntil(self.clients.claim());
-      });
-      self.addEventListener('fetch', (e) => {
-        if (e.request.method !== 'GET') return;
-        e.respondWith(
-          caches.match(e.request).then((cached) => cached || fetch(e.request))
-        );
-      });
-    `;
-    const swBlob = new Blob([swCode], {type: 'text/javascript'});
-    const swUrl = URL.createObjectURL(swBlob);
+    const localVideo = document.getElementById('localVideo');
+    const videoGrid = document.getElementById('videoGrid');
+    const setupScreen = document.getElementById('setupScreen');
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register(swUrl, { scope: './' })
-          .then(() => console.log('Inline SW Registered Successfully.'))
-          .catch(err => console.error('SW Registration Failed:', err));
-      });
+    // Helper: Base64 String Shortener Utility to prevent massive un-scannable QR densities
+    function cleanSDP(sdp) {
+      return sdp.split('\r\n').filter(line => !line.startsWith('a=candidate:団') && !line.startsWith('a=ice-')).join('\r\n');
     }
 
-    // ==========================================
-    // 2. WEBRTC MULTI-PEER MESH CORE ENGINE
-    // ==========================================
-    const iceConfig = { iceServers: [] }; 
-    const activePeers = new Map();       
-    let localStream = null;
-    let myPeerId = 'peer_' + Math.random().toString(36).substring(2, 7);
-    let targetPIN = '';
+    // Helper: Build QR Code Node Graphics Layout Elements
+    function generateQrImage(textData, targetElementId) {
+      const qr = qrcode(0, 'M');
+      qr.addData(textData);
+      qr.make();
+      document.getElementById(targetElementId).innerHTML = qr.createImgTag(6);
+    }
 
-    // Mock Offline Network Bus emulation layer using synchronized LocalStorage loops
-    const getMeshBus = () => JSON.parse(localStorage.getItem('offline_mesh_bus') || '{}');
-    const writeMeshBus = (bus) => localStorage.setItem('offline_mesh_bus', JSON.stringify(bus));
-
-    const setupScreen = document.getElementById('setupScreen');
-    const videoGrid = document.getElementById('videoGrid');
-    const localVideo = document.getElementById('localVideo');
-
-    // Navigation Hookups
-    document.getElementById('btnCreate').addEventListener('click', () => {
-      targetPIN = Math.floor(100 + Math.random() * 900).toString();
-      document.getElementById('generatedPIN').textContent = targetPIN;
-      document.getElementById('initialActions').classList.add('hidden');
-      document.getElementById('hostPanel').classList.remove('hidden');
-      initMeshHardware(true);
-    });
-
-    document.getElementById('btnJoinView').addEventListener('click', () => {
-      document.getElementById('initialActions').classList.add('hidden');
-      document.getElementById('joinPanel').classList.remove('hidden');
-    });
-
-    document.getElementById('btnConnect').addEventListener('click', () => {
-      targetPIN = document.getElementById('inputPIN').value.trim();
-      if(targetPIN.length !== 3) return alert('Enter a valid 3-digit room code.');
-      setupScreen.classList.add('hidden');
-      initMeshHardware(false);
-    });
-
-    async function initMeshHardware(isHost) {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    // Media Acquisition Logic Execution
+    async function initMediaStream() {
+      if (!localStream) {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
         localVideo.srcObject = localStream;
-        
-        if (isHost) {
-          startHostingDiscovery();
-        } else {
-          startClientDiscovery();
-        }
-      } catch (err) {
-        alert('Camera and microphone permissions are mandatory for local network calls.');
       }
     }
 
-    // Host Mesh Distribution Loop
-    function startHostingDiscovery() {
-      setInterval(() => {
-        let bus = getMeshBus();
-        if (!bus[targetPIN]) bus[targetPIN] = { hostId: myPeerId, clients: {}, handshakes: {} };
-        
-        Object.keys(bus[targetPIN].handshakes).forEach(async (senderId) => {
-          if (bus[targetPIN].handshakes[senderId].type === 'offer' && !activePeers.has(senderId)) {
-            if (activePeers.size >= 4) return; // Full capacity structural break (Max 5)
+    // ========================================================
+    // HOST PIPELINE MANAGEMENT ROUTINES
+    // ========================================================
+    document.getElementById('btnInitHost').addEventListener('click', async () => {
+      document.getElementById('panelStart').classList.add('hidden');
+      document.getElementById('panelHostStep1').classList.remove('remove', 'hidden');
+      await initMediaStream();
+
+      peerConnection = new RTCPeerConnection(iceConfig);
+      localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+      bindPeerTracks(peerConnection);
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      // Delay briefly to collect internal interface routing signatures before plotting code map
+      setTimeout(() => {
+        const structuralToken = btoa(JSON.stringify({ type: 'offer', sdp: cleanSDP(peerConnection.localDescription.sdp) }));
+        generateQrImage(structuralToken, 'hostQrPlace');
+        document.getElementById('btnGoToHostStep2').disabled = false;
+      }, 800);
+    });
+
+    document.getElementById('btnGoToHostStep2').addEventListener('click', () => {
+      document.getElementById('panelHostStep1').classList.add('hidden');
+      document.getElementById('panelHostStep2').classList.remove('hidden');
+      startQrScannerEngine('hostScannerCanvas', async (scannedPayload) => {
+        try {
+          const remoteConfig = JSON.parse(atob(scannedPayload));
+          if (remoteConfig.type === 'answer') {
+            stopScannerCamera();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteConfig));
+            setupScreen.classList.add('hidden'); // Clear overlay, connection bridged!
+          }
+        } catch(e) { console.error("Invalid return structural validation parameters."); }
+      });
+    });
+
+    // ========================================================
+    // CLIENT PIPELINE MANAGEMENT ROUTINES
+    // ========================================================
+    document.getElementById('btnInitClient').addEventListener('click', async () => {
+      document.getElementById('panelStart').classList.add('hidden');
+      document.getElementById('panelClientStep1').classList.remove('hidden');
+      await initMediaStream();
+
+      startQrScannerEngine('scannerCanvas', async (scannedPayload) => {
+        try {
+          const hostConfig = JSON.parse(atob(scannedPayload));
+          if (hostConfig.type === 'offer') {
+            stopScannerCamera();
             
-            const offerSDP = bus[targetPIN].handshakes[senderId].sdp;
-            await acceptOfferAndRespond(senderId, offerSDP);
+            // Switch UI immediately to Step 2
+            document.getElementById('panelClientStep1').classList.add('hidden');
+            document.getElementById('panelClientStep2').classList.remove('hidden');
+
+            peerConnection = new RTCPeerConnection(iceConfig);
+            localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+            bindPeerTracks(peerConnection);
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(hostConfig));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            setTimeout(() => {
+              const clientResponseToken = btoa(JSON.stringify({ type: 'answer', sdp: cleanSDP(peerConnection.localDescription.sdp) }));
+              generateQrImage(clientResponseToken, 'clientQrPlace');
+            }, 800);
           }
-        });
-        writeMeshBus(bus);
-      }, 1000);
-    }
+        } catch(e) { console.error("Malformed configuration scan signature detection processing entry."); }
+      });
+    });
 
-    async function acceptOfferAndRespond(clientId, offerSDP) {
-      const pc = new RTCPeerConnection(iceConfig);
-      activePeers.set(clientId, pc);
+    // ========================================================
+    // UNIVERSAL CAMERA SCANNER SUB-ENGINE
+    // ========================================================
+    async function startQrScannerEngine(canvasId, successCallback) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const scanVideo = document.getElementById('scanVideo');
 
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      setupPeerDOMAndTracks(pc, clientId);
+      activeScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      scanVideo.srcObject = activeScannerStream;
 
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offerSDP }));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      setTimeout(() => {
-        let bus = getMeshBus();
-        if (bus[targetPIN]) {
-          bus[targetPIN].handshakes[myPeerId + '_' + clientId] = {
-            type: 'answer',
-            target: clientId,
-            sdp: pc.localDescription.sdp
-          };
-          writeMeshBus(bus);
-          setupScreen.classList.add('hidden'); 
-        }
-      }, 500);
-    }
-
-    // Client Connecting Signatures
-    async function startClientDiscovery() {
-      const pc = new RTCPeerConnection(iceConfig);
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      setTimeout(() => {
-        let bus = getMeshBus();
-        if (!bus[targetPIN]) {
-          alert("Room not found. Check if the Host generated the code on this LAN.");
-          location.reload();
-          return;
-        }
-        
-        const hostId = bus[targetPIN].hostId;
-        activePeers.set(hostId, pc);
-        setupPeerDOMAndTracks(pc, hostId);
-
-        bus[targetPIN].handshakes[myPeerId] = {
-          type: 'offer',
-          sender: myPeerId,
-          sdp: pc.localDescription.sdp
-        };
-        writeMeshBus(bus);
-        
-        const listenInterval = setInterval(async () => {
-          let currentBus = getMeshBus();
-          const responseKey = hostId + '_' + myPeerId;
+      function renderFrameScanLoop() {
+        if (scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA) {
+          canvas.height = scanVideo.videoHeight;
+          canvas.width = scanVideo.videoWidth;
+          ctx.drawImage(scanVideo, 0, 0, canvas.width, canvas.height);
           
-          if (currentBus[targetPIN] && currentBus[targetPIN].handshakes[responseKey]) {
-            const answerSDP = currentBus[targetPIN].handshakes[responseKey].sdp;
-            clearInterval(listenInterval);
-            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answerSDP }));
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
+          
+          if (code && code.data.trim() !== "") {
+            successCallback(code.data);
+            return; 
           }
-        }, 1000);
-      }, 600);
+        }
+        if (activeScannerStream) {
+          requestAnimationFrame(renderFrameScanLoop);
+        }
+      }
+      requestAnimationFrame(renderFrameScanLoop);
     }
 
-    // Media Routing Node Injection
-    function setupPeerDOMAndTracks(pc, peerId) {
+    function stopScannerCamera() {
+      if (activeScannerStream) {
+        activeScannerStream.getTracks().forEach(track => track.stop());
+        activeScannerStream = null;
+      }
+    }
+
+    function bindPeerTracks(pc) {
       pc.ontrack = (event) => {
-        if (document.getElementById(`wrap_${peerId}`)) return;
+        if (document.getElementById('remoteVideoElement')) return;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'video-wrapper';
-        wrapper.id = `wrap_${peerId}`;
+        wrapper.id = 'remoteVideoWrapper';
 
-        const videoElem = document.createElement('video');
-        videoElem.autoplay = true;
-        videoElem.playsInline = true;
-        videoElem.srcObject = event.streams[0];
+        const remoteVideo = document.createElement('video');
+        remoteVideo.id = 'remoteVideoElement';
+        remoteVideo.autoplay = true;
+        remoteVideo.playsInline = true;
+        remoteVideo.srcObject = event.streams[0];
 
         const label = document.createElement('span');
         label.className = 'peer-label';
-        label.textContent = `Peer (${peerId.slice(-4)})`;
+        label.textContent = 'Remote iPad Connected';
 
-        wrapper.appendChild(videoElem);
+        wrapper.appendChild(remoteVideo);
         wrapper.appendChild(label);
         videoGrid.appendChild(wrapper);
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-          document.getElementById(`wrap_${peerId}`)?.remove();
-          activePeers.delete(peerId);
-        }
+        setupScreen.classList.add('hidden'); // Ensure wizard collapses safely upon live video feed
       };
     }
 
-    // Inline Control Elements Action Binding
+    // Interactive Media Toggle Buttons Bindings
     document.getElementById('btnMute').addEventListener('click', () => {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        document.getElementById('btnMute').classList.toggle('off', !audioTrack.enabled);
-      }
+      const t = localStream.getAudioTracks()[0];
+      t.enabled = !t.enabled;
+      document.getElementById('btnMute').classList.toggle('off', !t.enabled);
     });
 
     document.getElementById('btnCam').addEventListener('click', () => {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        document.getElementById('btnCam').classList.toggle('off', !videoTrack.enabled);
-      }
-    });
-
-    // Handle session termination cleanup
-    window.addEventListener('beforeunload', () => {
-      let bus = getMeshBus();
-      if (bus[targetPIN]) {
-        if (bus[targetPIN].hostId === myPeerId) {
-          delete bus[targetPIN];
-        } else {
-          delete bus[targetPIN].handshakes[myPeerId];
-        }
-        writeMeshBus(bus);
-      }
+      const t = localStream.getVideoTracks()[0];
+      t.enabled = !t.enabled;
+      document.getElementById('btnCam').classList.toggle('off', !t.enabled);
     });
   </script>
 </body>
